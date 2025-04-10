@@ -4,6 +4,7 @@ from datetime import datetime
 import urllib.parse
 import os
 import mimetypes
+import requests  # Import requests to make HTTP requests
 
 class ChatHandler(BaseHTTPRequestHandler):
     def _set_headers(self, status_code=200, content_type='application/json'):
@@ -128,50 +129,34 @@ class ChatHandler(BaseHTTPRequestHandler):
             return "It's getting late. Focus on gentle stretching and prepare for quality sleep."
     
     def generate_response(self, message, metrics):
-        message_lower = message.lower()
-        
-        # Check for specific queries
-        if "heart" in message_lower or "bpm" in message_lower:
-            hr = metrics.get('heart_rate', 0)
-            status = "elevated" if hr > 100 else "low" if hr < 60 else "normal"
-            return f"Your heart rate is {hr} BPM, which is {status}. " + (
-                "Try some deep breathing exercises." if hr > 100 else
-                "Consider some light activity to boost circulation." if hr < 60 else
-                "Keep up the good work!"
-            )
-        
-        elif "step" in message_lower:
-            steps = metrics.get('steps', 0)
-            remaining = 10000 - steps
-            return f"You've taken {int(steps)} steps today. " + (
-                f"Just {int(remaining)} more to reach your goal!" if remaining > 0 else
-                "Congratulations! You've reached your daily step goal!"
-            )
-        
-        elif "calorie" in message_lower:
-            calories = metrics.get('calories', 0)
-            return f"You've burned {int(calories)} calories today. " + (
-                "Consider adding some more activity to reach your daily goal." if calories < 2000 else
-                "Great job maintaining an active lifestyle!"
-            )
-        
-        elif "recommend" in message_lower or "suggest" in message_lower:
-            time_rec = self.get_time_based_recommendation()
-            health_rec = self.generate_health_context(metrics)
-            return f"{time_rec}\n\n{health_rec}"
-        
-        elif "help" in message_lower:
-            return """I can help you with:
-• Tracking your heart rate
-• Monitoring your step count
-• Analyzing your calorie burn
-• Providing personalized health recommendations
-• Setting and tracking fitness goals
+        # Call Gemini API to get a response
+        gemini_response = self.call_gemini_api(message)
+        return gemini_response
 
-Just ask me about any of these topics!"""
-        
-        else:
-            return f"I'm here to help with your health tracking! {self.get_time_based_recommendation()}\n\nYou can ask me about your heart rate, steps, calories, or request recommendations."
+    def call_gemini_api(self, message):
+        api_key = "AIzaSyBdtXSkUEemDK_U4wCVhIYRB-Ou-76qoRc"  # Replace with your actual API key
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+        headers = {
+            'Content-Type': 'application/json'
+        }
+        payload = {
+            "contents": [{
+                "parts": [{"text": message}]
+            }]
+        }
+        try:
+            response = requests.post(url, headers=headers, json=payload)
+            response.raise_for_status()  # Raise an error for bad responses
+            response_data = response.json()
+            # Log the response for debugging
+            print("Gemini API Response:", response_data)
+            # Extract the text response from the API
+            text_response = response_data.get('contents', [{}])[0].get('parts', [{}])[0].get('text', '')
+            return text_response
+        except requests.exceptions.HTTPError as http_err:
+            return f"HTTP error occurred: {http_err}"
+        except Exception as e:
+            return f"Error calling Gemini API: {str(e)}"
 
 def run_server(server_class=HTTPServer, handler_class=ChatHandler, port=5000):
     server_address = ('', port)
@@ -180,4 +165,4 @@ def run_server(server_class=HTTPServer, handler_class=ChatHandler, port=5000):
     httpd.serve_forever()
 
 if __name__ == "__main__":
-    run_server() 
+    run_server()

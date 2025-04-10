@@ -391,9 +391,39 @@
                     console.error('Server connection error:', error);
                 });
         });
+
+        // Function to send request to Gemini API
+        function sendToGeminiAPI(userInput) {
+            fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyBdtXSkUEemDK_U4wCVhIYRB-Ou-76qoRc", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{ text: userInput }]
+                    }]
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('API Response:', data);
+                // Handle the API response here
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
+        // Add event listener to chat form
+        document.getElementById('chatForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const userInput = document.getElementById('messageInput').value;
+            sendToGeminiAPI(userInput);
+        });
     </script>
     <script src="background.js"></script>
     <script src="script.js"></script>
     <script src="chat.js"></script>
 </body>
-</html> 
+</html>
